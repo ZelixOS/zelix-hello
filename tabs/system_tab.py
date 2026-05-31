@@ -1,3 +1,4 @@
+import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, 
                              QGroupBox, QMessageBox, QPlainTextEdit, QHBoxLayout)
 from PyQt6.QtCore import Qt
@@ -51,8 +52,12 @@ class SystemTab(QWidget):
         self.btn_remove_orphans = QPushButton()
         self.btn_remove_orphans.clicked.connect(self.run_remove_orphans)
         
+        self.btn_optimize_mirrors = QPushButton()
+        self.btn_optimize_mirrors.clicked.connect(self.run_optimize_mirrors)
+        
         maint_layout.addWidget(self.btn_clear_cache)
         maint_layout.addWidget(self.btn_remove_orphans)
+        maint_layout.addWidget(self.btn_optimize_mirrors)
         
         layout.addWidget(self.maint_group)
         
@@ -73,6 +78,7 @@ class SystemTab(QWidget):
         self.btn_update.setText(Translator.get("sys_update"))
         self.btn_clear_cache.setText(Translator.get("sys_clear_cache"))
         self.btn_remove_orphans.setText(Translator.get("sys_remove_orphans"))
+        self.btn_optimize_mirrors.setText(Translator.get("sys_optimize_mirrors"))
 
     def log_output(self, text):
         self.terminal_output.appendPlainText(text)
@@ -85,6 +91,31 @@ class SystemTab(QWidget):
         self.terminal_output.clear()
         command = ["bash", "-c", "pacman -Qdtq | pkexec pacman -Rns - --noconfirm"]
         self.run_command(command, use_pkexec=False)
+        
+    def get_user_country(self):
+        for var in ['LANG', 'LC_ADDRESS', 'LC_ALL']:
+            val = os.environ.get(var)
+            if val and '_' in val:
+                try:
+                    parts = val.split('_')
+                    if len(parts) > 1:
+                        country = parts[1].split('.')[0].upper()
+                        if len(country) == 2 and country.isalpha():
+                            return country
+                except Exception:
+                    pass
+        return None
+
+    def run_optimize_mirrors(self):
+        self.terminal_output.clear()
+        country = self.get_user_country()
+        if country:
+            cmd_str = f"rate-mirrors --allow-root --entry-country {country} arch > /etc/pacman.d/mirrorlist"
+        else:
+            cmd_str = "rate-mirrors --allow-root arch > /etc/pacman.d/mirrorlist"
+            
+        command = ["bash", "-c", cmd_str]
+        self.run_command(command, use_pkexec=True)
         
     def run_command(self, cmd_list, use_pkexec=True):
         self.runner = CommandRunner(cmd_list, use_pkexec=use_pkexec)

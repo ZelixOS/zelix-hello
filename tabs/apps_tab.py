@@ -46,7 +46,8 @@ class AppsTab(QWidget):
                     ("Lutris", "lutris"),
                     ("ProtonTricks", "protontricks"),
                     ("MangoHud", "mangohud"),
-                    ("Wine", "wine")
+                    ("Wine", "wine"),
+                    ("Steam", "steam")
                 ],
                 "extra_deps": "gamemode gamescope wine-staging winetricks vulkan-radeon vulkan-intel vulkan-icd-loader"
             },
@@ -54,16 +55,19 @@ class AppsTab(QWidget):
                 "apps": [
                     ("LibreOffice", "libreoffice-fresh"),
                     ("Okular", "okular"),
-                    ("Calligra", "calligra")
+                    ("Calligra", "calligra"),
+                    ("Thunderbird", "thunderbird")
                 ],
                 "extra_deps": ""
             },
-            "Editing": {
+            "Editing & Media": {
                 "apps": [
                     ("Kdenlive", "kdenlive"),
                     ("OBS Studio", "obs-studio"),
                     ("GIMP", "gimp"),
-                    ("Blender", "blender")
+                    ("Blender", "blender"),
+                    ("VLC", "vlc"),
+                    ("Audacity", "audacity")
                 ],
                 "extra_deps": ""
             },
@@ -72,7 +76,18 @@ class AppsTab(QWidget):
                     ("Firefox", "firefox"),
                     ("Chromium", "chromium"),
                     ("Falkon", "falkon"),
-                    ("Telegram", "telegram-desktop")
+                    ("Telegram", "telegram-desktop"),
+                    ("Discord", "discord"),
+                    ("Spotify", "spotify-launcher")
+                ],
+                "extra_deps": ""
+            },
+            "Development & Tools": {
+                "apps": [
+                    ("VS Code", "code"),
+                    ("Neovim", "neovim"),
+                    ("FileZilla", "filezilla"),
+                    ("VirtualBox", "virtualbox")
                 ],
                 "extra_deps": ""
             }

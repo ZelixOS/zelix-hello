@@ -162,19 +162,33 @@ class DashboardTab(QWidget):
         self.btn_system.clicked.connect(lambda: self.parent_window.navigate_to(2))
         
         # Connect URLs
-        self.btn_readme.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/lanierc/zelixos/blob/main/README.md")))
-        self.btn_wiki.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://zelixos.com/docs/docs.html")))
+        self.btn_readme.clicked.connect(self.open_readme)
+        self.btn_wiki.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://docs.zelixos.com")))
         self.btn_forum.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://forum.zelixos.org")))
-        self.btn_release_info.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/lanierc/zelixos/releases")))
-        self.btn_get_involved.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/lanierc/zelixos")))
-        self.btn_development.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/lanierc/zelixos")))
+        self.btn_release_info.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ZelixOS/releases")))
+        self.btn_get_involved.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ZelixOS")))
+        self.btn_development.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ZelixOS")))
         self.btn_donate.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://zelixos.com/")))
         
         btn_tg.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://t.me/zelixos")))
         btn_dc.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://discord.gg/zelixos")))
-        btn_gh.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/lanierc/zelixos")))
+        btn_gh.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/ZelixOS")))
         
         self.retranslate_ui()
+
+    def open_readme(self):
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        readme_path = os.path.join(app_dir, "readme.txt")
+        
+        if not os.path.exists(readme_path):
+            system_path = "/usr/share/zelix-hello/readme.txt"
+            if os.path.exists(system_path):
+                readme_path = system_path
+                
+        if os.path.exists(readme_path):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(readme_path))
+        else:
+            QDesktopServices.openUrl(QUrl("https://github.com/ZelixOS/blob/main/README.md"))
 
     def change_language(self, lang):
         Translator.set_language(lang)
@@ -203,10 +217,33 @@ class DashboardTab(QWidget):
         self.lbl_launch.setText(Translator.get("lbl_launch_start"))
 
     def launch_installer(self):
+        # Try to get localized Desktop path
         try:
-            subprocess.Popen(["zelix-installer"])
-        except Exception as e:
-            print(f"Could not launch installer: {e}")
+            desktop_path = subprocess.check_output(["xdg-user-dir", "DESKTOP"]).decode("utf-8").strip()
+        except Exception:
+            desktop_path = os.path.expanduser("~/Desktop")
+            if not os.path.exists(desktop_path):
+                desktop_path = os.path.expanduser("~/Masaüstü")
+        
+        desktop_file = os.path.join(desktop_path, "zelix-installer.desktop")
+        
+        if os.path.exists(desktop_file):
+            # Try xdg-open first as it handles Desktop files well in most DEs
+            # then fallback to gtk-launch or manual execution
+            try:
+                subprocess.Popen(["xdg-open", desktop_file])
+            except Exception:
+                try:
+                    subprocess.Popen(["gtk-launch", "zelix-installer.desktop"])
+                except Exception as e:
+                    print(f"Could not launch installer: {e}")
+        else:
+            # Fallback: try to launch directly if we know where it is
+            fallback_script = os.path.expanduser("~/ZelixBuild/zelixins/myself.py")
+            if os.path.exists(fallback_script):
+                subprocess.Popen(["alacritty", "-e", "sudo", "python", fallback_script])
+            else:
+                print(f"Installer desktop file not found at {desktop_file}")
 
     def toggle_autostart(self):
         autostart_dir = os.path.expanduser("~/.config/autostart")
