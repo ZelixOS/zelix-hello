@@ -1,4 +1,5 @@
 import os
+import shutil
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, 
                              QGroupBox, QMessageBox, QPlainTextEdit, QHBoxLayout)
 from PyQt6.QtCore import Qt
@@ -62,34 +63,53 @@ class SystemTab(QWidget):
         layout.addWidget(self.maint_group)
         
         # Terminal Output Area
+        self.lbl_terminal = QLabel()
         self.terminal_output = QPlainTextEdit()
         self.terminal_output.setReadOnly(True)
         self.terminal_output.setStyleSheet("background-color: #000000; color: #00FF00; font-family: monospace;")
-        layout.addWidget(QLabel("Terminal:"))
+        layout.addWidget(self.lbl_terminal)
         layout.addWidget(self.terminal_output)
         
         self.retranslate_ui()
+
+    def set_buttons_enabled(self, enabled):
+        self.btn_update.setEnabled(enabled)
+        self.btn_clear_cache.setEnabled(enabled)
+        self.btn_remove_orphans.setEnabled(enabled)
+        self.btn_optimize_mirrors.setEnabled(enabled)
 
     def retranslate_ui(self):
         self.btn_back.setText(Translator.get("btn_back"))
         self.title.setText(Translator.get("sys_title"))
         self.update_group.setTitle(Translator.get("sys_title"))
-        self.maint_group.setTitle(Translator.get("sys_title")) # could use a fixes key, but this is fine
+        self.maint_group.setTitle(Translator.get("sys_maintenance"))
         self.btn_update.setText(Translator.get("sys_update"))
         self.btn_clear_cache.setText(Translator.get("sys_clear_cache"))
         self.btn_remove_orphans.setText(Translator.get("sys_remove_orphans"))
         self.btn_optimize_mirrors.setText(Translator.get("sys_optimize_mirrors"))
+        self.lbl_terminal.setText(Translator.get("terminal_label"))
 
     def log_output(self, text):
         self.terminal_output.appendPlainText(text)
         
     def run_update(self):
-        self.terminal_output.clear()
-        self.run_command(["pacman", "-Syu", "--noconfirm"])
+        reply = QMessageBox.question(
+            self,
+            Translator.get("confirm_title"),
+            Translator.get("confirm_update"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.terminal_output.clear()
+            self.run_command(["pacman", "-Syu", "--noconfirm"])
         
     def run_remove_orphans(self):
         self.terminal_output.clear()
-        command = ["bash", "-c", "pacman -Qdtq | pkexec pacman -Rns - --noconfirm"]
+        command = [
+            "bash", "-c",
+            "orphans=$(pacman -Qdtq); if [ -n \"$orphans\" ]; then echo \"$orphans\" | pkexec pacman -Rns - --noconfirm; else echo 'No orphan packages found.'; fi"
+        ]
         self.run_command(command, use_pkexec=False)
         
     def get_user_country(self):
@@ -107,6 +127,14 @@ class SystemTab(QWidget):
         return None
 
     def run_optimize_mirrors(self):
+        if not shutil.which("rate-mirrors"):
+            QMessageBox.warning(
+                self,
+                Translator.get("msg_error"),
+                "rate-mirrors is not installed. Please install 'rate-mirrors' or 'rate-mirrors-bin'."
+            )
+            return
+
         self.terminal_output.clear()
         country = self.get_user_country()
         if country:
@@ -118,6 +146,8 @@ class SystemTab(QWidget):
         self.run_command(command, use_pkexec=True)
         
     def run_command(self, cmd_list, use_pkexec=True):
+        self.set_buttons_enabled(False)
+        self.log_output(f"[{Translator.get('status_running')}]")
         self.runner = CommandRunner(cmd_list, use_pkexec=use_pkexec)
         self.runner.output_signal.connect(self.log_output)
         self.runner.error_signal.connect(self.log_output)
@@ -125,6 +155,7 @@ class SystemTab(QWidget):
         self.runner.start()
         
     def on_finished(self, rc):
+        self.set_buttons_enabled(True)
         if rc == 0:
             self.log_output(f"\n[{Translator.get('msg_success')}]")
             QMessageBox.information(self, Translator.get("msg_success"), Translator.get("msg_success"))

@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, 
                              QPushButton, QGridLayout, QComboBox, QSpacerItem, 
@@ -15,9 +16,9 @@ class DashboardTab(QWidget):
         Translator.add_listener(self)
         
     def _init_ui(self):
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(40, 40, 40, 20)
-        self.layout.setSpacing(10)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(40, 40, 40, 20)
+        self.main_layout.setSpacing(10)
         
         # Header
         header_layout = QVBoxLayout()
@@ -38,8 +39,8 @@ class DashboardTab(QWidget):
         header_layout.addSpacing(10)
         header_layout.addWidget(self.subtitle)
         
-        self.layout.addLayout(header_layout)
-        self.layout.addSpacing(30)
+        self.main_layout.addLayout(header_layout)
+        self.main_layout.addSpacing(30)
         
         # Grid section
         grid_layout = QGridLayout()
@@ -83,9 +84,9 @@ class DashboardTab(QWidget):
         grid_layout.addWidget(self.btn_system, 3, 1)
         grid_layout.addWidget(self.btn_donate, 3, 2)
         
-        self.layout.addLayout(grid_layout)
+        self.main_layout.addLayout(grid_layout)
         
-        self.layout.addSpacing(30)
+        self.main_layout.addSpacing(30)
         
         # Installation section
         install_layout = QVBoxLayout()
@@ -100,9 +101,9 @@ class DashboardTab(QWidget):
         
         install_layout.addWidget(self.lbl_install)
         install_layout.addWidget(self.btn_install)
-        self.layout.addLayout(install_layout)
+        self.main_layout.addLayout(install_layout)
         
-        self.layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        self.main_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         
         # Footer
         footer_layout = QHBoxLayout()
@@ -147,15 +148,15 @@ class DashboardTab(QWidget):
         
         if os.path.exists(self.autostart_path) or os.path.exists(self.system_autostart_path):
             self.btn_autostart.setChecked(True)
-            self.btn_autostart.setText("ON")
+            self.btn_autostart.setText(Translator.get("toggle_on"))
         else:
             self.btn_autostart.setChecked(False)
-            self.btn_autostart.setText("OFF")
+            self.btn_autostart.setText(Translator.get("toggle_off"))
         
         footer_layout.addWidget(self.lbl_launch)
         footer_layout.addWidget(self.btn_autostart)
         
-        self.layout.addLayout(footer_layout)
+        self.main_layout.addLayout(footer_layout)
 
         # Connect actions
         self.btn_software.clicked.connect(lambda: self.parent_window.navigate_to(1))
@@ -215,6 +216,10 @@ class DashboardTab(QWidget):
         self.btn_install.setText(Translator.get("btn_launch_installer"))
         
         self.lbl_launch.setText(Translator.get("lbl_launch_start"))
+        if self.btn_autostart.isChecked():
+            self.btn_autostart.setText(Translator.get("toggle_on"))
+        else:
+            self.btn_autostart.setText(Translator.get("toggle_off"))
 
     def launch_installer(self):
         # Try to get localized Desktop path
@@ -228,22 +233,44 @@ class DashboardTab(QWidget):
         desktop_file = os.path.join(desktop_path, "zelix-installer.desktop")
         
         if os.path.exists(desktop_file):
-            # Try xdg-open first as it handles Desktop files well in most DEs
-            # then fallback to gtk-launch or manual execution
             try:
                 subprocess.Popen(["xdg-open", desktop_file])
+                return
             except Exception:
                 try:
                     subprocess.Popen(["gtk-launch", "zelix-installer.desktop"])
+                    return
                 except Exception as e:
-                    print(f"Could not launch installer: {e}")
-        else:
-            # Fallback: try to launch directly if we know where it is
-            fallback_script = os.path.expanduser("~/ZelixBuild/zelixins/myself.py")
-            if os.path.exists(fallback_script):
-                subprocess.Popen(["alacritty", "-e", "sudo", "python", fallback_script])
-            else:
-                print(f"Installer desktop file not found at {desktop_file}")
+                    print(f"Could not launch installer desktop file: {e}")
+        
+        # Fallback 1: check calamares directly
+        if shutil.which("calamares"):
+            try:
+                subprocess.Popen(["pkexec", "calamares"])
+                return
+            except Exception as e:
+                print(f"Could not launch calamares: {e}")
+                
+        # Fallback 2: check if zelix-installer binary exists
+        if shutil.which("zelix-installer"):
+            try:
+                subprocess.Popen(["zelix-installer"])
+                return
+            except Exception as e:
+                print(f"Could not launch zelix-installer binary: {e}")
+
+        # Fallback 3: check installer script
+        fallback_script = os.path.expanduser("~/ZelixBuild/zelixins/myself.py")
+        if os.path.exists(fallback_script):
+            terminals = ["alacritty", "konsole", "gnome-terminal", "xfce4-terminal", "kitty", "xterm"]
+            for term in terminals:
+                if shutil.which(term):
+                    try:
+                        subprocess.Popen([term, "-e", "sudo", "python", fallback_script])
+                        return
+                    except Exception:
+                        pass
+        print("Installer could not be located.")
 
     def toggle_autostart(self):
         autostart_dir = os.path.expanduser("~/.config/autostart")
@@ -251,29 +278,31 @@ class DashboardTab(QWidget):
             os.makedirs(autostart_dir, exist_ok=True)
             
         if self.btn_autostart.isChecked():
-            self.btn_autostart.setText("ON")
+            self.btn_autostart.setText(Translator.get("toggle_on"))
             desktop_content = (
                 "[Desktop Entry]\n"
                 "Type=Application\n"
                 "Name=Zelix Hello\n"
                 "Comment=Welcome to ZelixOS\n"
-                "Exec=/usr/share/applications/zelix-hello.desktop\n"
+                "Exec=zelix-hello\n"
                 "Icon=zelixos\n"
                 "Terminal=false\n"
             )
             try:
                 orig_file = "/usr/share/applications/zelix-hello.desktop"
+                if os.path.exists(self.autostart_path) or os.path.islink(self.autostart_path):
+                    os.remove(self.autostart_path)
                 if os.path.exists(orig_file):
                     os.symlink(orig_file, self.autostart_path)
                 else:
-                    with open(self.autostart_path, "w") as f:
+                    with open(self.autostart_path, "w", encoding="utf-8") as f:
                         f.write(desktop_content)
             except Exception as e:
                 print(f"Error enabling autostart: {e}")
         else:
-            self.btn_autostart.setText("OFF")
+            self.btn_autostart.setText(Translator.get("toggle_off"))
             # Remove user autostart
-            if os.path.exists(self.autostart_path):
+            if os.path.exists(self.autostart_path) or os.path.islink(self.autostart_path):
                 try:
                     os.remove(self.autostart_path)
                 except Exception as e:
@@ -282,8 +311,6 @@ class DashboardTab(QWidget):
             # Remove system autostart
             if os.path.exists(self.system_autostart_path):
                 try:
-                    # Attempt to remove system-wide autostart. 
-                    # We use sudo as it's likely a live system or admin user.
-                    subprocess.run(["sudo", "rm", "-f", self.system_autostart_path], check=False)
+                    subprocess.run(["pkexec", "rm", "-f", self.system_autostart_path], check=False)
                 except Exception as e:
                     print(f"Error disabling system autostart: {e}")
