@@ -2,6 +2,10 @@
 
 A welcome and system management application for ZelixOS, written in Python and PyQt6.
 
+![Zelix Hello application screenshot](docs/images/zelix-hello.png)
+
+Zelix Hello brings the first-run welcome page, application discovery, hardware guidance, and everyday system tools together in one desktop application. It supports English, Turkish, and Spanish.
+
 ## Features
 
 - System information and project links.
