@@ -1,8 +1,11 @@
 import os
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
 from utils.enable_multilib import enabled_config
+from utils.gaming_packages import graphics_packages
 from utils.terminal import terminal_launch_command
 
 
@@ -46,6 +49,37 @@ class PreferredTerminalTests(unittest.TestCase):
                 terminal_launch_command(["bash", "-lc", "echo hello"]),
                 ["konsole", "-e", "bash", "-lc", "echo hello"],
             )
+
+
+class GraphicsPackageTests(unittest.TestCase):
+    @staticmethod
+    def add_device(root, name, vendor, device_class="0x030000"):
+        device = Path(root) / name
+        device.mkdir()
+        (device / "class").write_text(device_class)
+        (device / "vendor").write_text(vendor)
+
+    def test_hybrid_amd_intel_gets_matching_32_bit_vulkan_libraries(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.add_device(root, "amd", "0x1002")
+            self.add_device(root, "intel", "0x8086")
+            packages = graphics_packages(set(), root)
+        self.assertEqual(packages.count("lib32-mesa"), 1)
+        self.assertIn("lib32-vulkan-radeon", packages)
+        self.assertIn("lib32-vulkan-intel", packages)
+
+    def test_nvidia_requires_installed_driver(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.add_device(root, "nvidia", "0x10de")
+            self.assertEqual(graphics_packages(set(), root), [])
+            self.assertEqual(
+                graphics_packages({"nvidia-utils"}, root), ["lib32-nvidia-utils"]
+            )
+
+    def test_non_display_device_is_ignored(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.add_device(root, "network", "0x1002", "0x020000")
+            self.assertEqual(graphics_packages(set(), root), [])
 
 
 if __name__ == "__main__":
