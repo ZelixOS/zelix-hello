@@ -11,12 +11,14 @@ The interface is available in English, Turkish, and Spanish. Its language choice
 | Area | What it provides |
 | --- | --- |
 | Welcome | Project links, the included getting-started notes, and release information. |
-| Applications | Search and select applications from enabled Arch repositories, Flatpak, and the AUR. The list identifies each package source. |
+| Applications | Search and select applications from enabled Arch repositories, Flatpak, and the AUR. Install a gaming setup with Steam, Lutris, Heroic, Wine, and supporting tools from one button. |
 | System | Run system updates, open Zelix Updater, optimize mirrors, enable Flathub, clear package cache, and remove orphaned packages. Command output is shown in the application. |
 | Drivers | Inspect detected hardware, view suggested driver packages, and install selected packages. Suggestions are based on detected hardware and installed system information. |
 | Tweaks | Check and manage Bluetooth, UFW firewall, periodic SSD trim, and printing services. |
 
 Software sources have different requirements: packages from enabled Arch repositories (including ZelixRepo) use pacman, Flatpak packages need Flatpak/Flathub, and AUR packages need a supported AUR helper. Zelix Hello does not make AUR packages part of the normal pacman system update.
+
+The gaming setup enables multilib when needed, updates system packages, then installs the selected gaming tools. It saves a backup of `/etc/pacman.conf` before changing multilib settings. Graphics drivers remain hardware specific and are managed in the Drivers page. Application installs open in the terminal preferred by the desktop or the `TERMINAL` environment variable.
 
 ## Install on ZelixOS
 
