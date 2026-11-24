@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from utils.enable_multilib import enabled_config
 from utils.gaming_packages import graphics_packages
+from utils.gaming_install import install
 from utils.terminal import terminal_launch_command
 
 
@@ -80,6 +81,40 @@ class GraphicsPackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             self.add_device(root, "network", "0x1002", "0x020000")
             self.assertEqual(graphics_packages(set(), root), [])
+
+
+class GamingInstallTests(unittest.TestCase):
+    def test_preserves_unowned_lsb_release_and_installs_without_prompts(self):
+        with tempfile.TemporaryDirectory() as root:
+            release_file = Path(root) / "lsb-release"
+            release_file.write_text("DISTRIB_ID=ZelixOS\n")
+
+            def install_packages(command):
+                self.assertFalse(release_file.exists())
+                self.assertIn("--noconfirm", command)
+                release_file.write_text("DISTRIB_ID=Arch\n")
+                return 0
+
+            with patch("utils.gaming_install.os.geteuid", return_value=0), \
+                 patch("utils.gaming_install.subprocess.run") as owner, \
+                 patch("utils.gaming_install.subprocess.call", side_effect=install_packages):
+                owner.return_value.returncode = 1
+                self.assertEqual(install(["steam"], release_file), 0)
+
+            self.assertEqual(release_file.read_text(), "DISTRIB_ID=ZelixOS\n")
+            self.assertEqual(len(list(Path(root).glob("lsb-release.zelix-hello-backup-*"))), 1)
+
+    def test_owned_lsb_release_is_left_in_place(self):
+        with tempfile.TemporaryDirectory() as root:
+            release_file = Path(root) / "lsb-release"
+            release_file.write_text("DISTRIB_ID=ZelixOS\n")
+            with patch("utils.gaming_install.os.geteuid", return_value=0), \
+                 patch("utils.gaming_install.subprocess.run") as owner, \
+                 patch("utils.gaming_install.subprocess.call", return_value=0):
+                owner.return_value.returncode = 0
+                self.assertEqual(install(["steam"], release_file), 0)
+            self.assertEqual(release_file.read_text(), "DISTRIB_ID=ZelixOS\n")
+            self.assertEqual(len(list(Path(root).iterdir())), 1)
 
 
 if __name__ == "__main__":
